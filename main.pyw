@@ -1,10 +1,30 @@
-import rpc
-import time
-import socketio
 import asyncio
+import time
+import sys
+
+import socketio
+import pystray
+import PIL.Image
+
+import rpc
 
 sio = socketio.AsyncClient()
 rpc_client = rpc.RPC.Set_ID('900755240532471888')
+
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+
+async def on_quit(icon, item):
+	icon.stop()
+	rpc_client.clear_activity()
+	await sio.disconnect()
+	sys.exit(0)
+
+icon = pystray.Icon('Stopify', PIL.Image.open('stopify.jpg'), 'Stopify', menu=pystray.Menu(
+	pystray.MenuItem('Quit', lambda icon, item: asyncio.run_coroutine_threadsafe(on_quit(icon, item), loop))
+))
+
+icon.run_detached()
 
 @sio.on('connect')
 async def on_connect():
@@ -16,8 +36,6 @@ async def on_disconnect():
 
 @sio.on('playerState')
 async def on_playerState(data):
-	global bro
-
 	if 'knownUsers' not in data:
 		return
 
@@ -43,6 +61,6 @@ async def main():
 	await sio.wait()
 
 try:
-	asyncio.run(main())
+	loop.run_until_complete(main())
 except KeyboardInterrupt:
 	rpc_client.clear_activity()
